@@ -47,7 +47,7 @@ This is the **backend** of VRM Agent, published as a portfolio artifact. It is p
 - Full backend source (`src/`) — API routes, scheduled jobs, middleware, encryption layer, external integrations
 - Database schema and migrations (`prisma/`) — PostgreSQL on Supabase
 - Three planning documents — `PRD.md`, `ARCHITECTURE.md`, `TICKETS.md`
-- 25 test suites containing more than 1,000 tests across jobs, routes, and core libraries
+- Pre-launch QA report (`QA_REPORT.pdf`) — 849 automated tests across backend and frontend, 40/40 end-to-end integration assertions, zero failures
 
 **Deliberately held back:**
 - Frontend (Next.js / React) — held until the integration layer is unpaused so dashboards reflect real data
@@ -87,6 +87,7 @@ vrm-agent-backend/
 ├── ARCHITECTURE.md         Technical design and infrastructure decisions
 ├── PRD.md                  Product requirements and feature specifications
 ├── TICKETS.md              62 implementation tickets with acceptance criteria
+├── QA_REPORT.pdf           Pre-launch QA report — 849 tests, 40/40 E2E, 0 failures
 ├── .env.example            Environment variable structure (values stripped)
 ├── .gitignore
 ├── jest.config.ts
@@ -101,8 +102,9 @@ vrm-agent-backend/
 1. `PRD.md` Section 1 — what the product is and why
 2. `ARCHITECTURE.md` Section 1 — the tech stack decisions and rationale
 3. A sample ticket from `TICKETS.md` (T-001 for project setup; T-049 for a feature ticket) — see how features were scoped
+4. `QA_REPORT.pdf` — Sections 1, 3, and 8 — the executive summary, test results, and sign-off
 
-**For a thorough read:** all three planning documents in the order above, then the source code starting with `src/index.ts`.
+**For a thorough read:** all four documents in the order above, then the source code starting with `src/index.ts`.
 
 ---
 
