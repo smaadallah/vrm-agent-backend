@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum AlertChannel {
+  sms
+  email
+  both
+}
+
+enum CommunicationTone {
+  casual
+  professional
+  luxury
+}
+
+enum PropertyStatus {
+  unknown
+  guest_ready
+  occupied
+  needs_cleaning
+}
+
+enum Platform {
+  airbnb
+  vrbo
+}
+
+enum BookingStatus {
+  upcoming
+  active
+  completed
+  cancelled
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageChannel {
+  airbnb
+  vrbo
+  sms
+}
+
+enum MessageSender {
+  guest
+  agent
+  manager
+}
+
+enum MessageStatus {
+  auto_handled
+  escalated
+  failed
+  no_response_needed
+  processing
+  manager_handled
+}
+
+enum CleaningJobStatus {
+  scheduled
+  confirmed
+  completed
+  no_response
+  failed
+}
+
+enum ClosedBy {
+  cleaner_sms
+  manager_manual
+}
+
+enum ReportedBy {
+  guest
+  cleaner
+  manager
+}
+
+enum WorkOrderPriority {
+  urgent
+  high
+  medium
+  low
+}
+
+enum WorkOrderStatus {
+  open
+  in_progress
+  resolved
+}
+
+enum ResolvedBy {
+  manager
+}
+
+enum ReviewDraftStatus {
+  pending
+  copied
+  dismissed
+}
+
+model accounts {
+  id                        String            @id @default(uuid())
+  business_name             String
+  manager_phone             String
+  manager_email             String
+  alert_channel             AlertChannel
+  communication_tone        CommunicationTone
+  twilio_phone_number       String?
+  airbnb_access_token       String?
+  airbnb_refresh_token      String?
+  vrbo_access_token         String?
+  vrbo_refresh_token        String?
+  token_version             Int               @default(1)
+  daily_ai_token_usage      Int               @default(0)
+  ai_token_daily_cap        Int               @default(500000)
+  ai_token_cap_reset_at     DateTime?
+  data_region               String            @default("us")
+  password_hash             String
+  password_reset_token      String?
+  password_reset_expires_at DateTime?
+  created_at                DateTime          @default(now())
+
+  properties           properties[]
+  cleaners             cleaners[]
+  property_cleaners    property_cleaners[]
+  turnover_checklists  turnover_checklists[]
+  bookings             bookings[]
+  messages             messages[]
+  cleaning_jobs        cleaning_jobs[]
+  work_orders          work_orders[]
+  review_drafts        review_drafts[]
+}
+
+model properties {
+  id                                  String         @id @default(uuid())
+  account_id                          String
+  name                                String
+  address                             String
+  checkin_time                        String
+  checkout_time                       String
+  door_access_instructions            String?
+  parking_instructions                String?
+  wifi_name                           String?
+  wifi_password                       String?
+  house_rules                         String?
+  amenities                           String?
+  local_recommendations               String?
+  special_instructions                String?
+  checkout_steps                      String?
+  checkin_message_template            String?
+  checkout_reminder_template          String?
+  review_request_template             String?
+  checkin_message_enabled             Boolean        @default(true)
+  checkout_reminder_enabled           Boolean        @default(true)
+  review_request_enabled              Boolean        @default(true)
+  checkin_message_hours_before        Int            @default(24)
+  checkout_reminder_send_time         String         @default("20:00")
+  review_request_hours_after          Int            @default(2)
+  airbnb_listing_id                   String?
+  vrbo_listing_id                     String?
+  property_status                     PropertyStatus @default(unknown)
+  auto_schedule_cleaner_enabled       Boolean        @default(true)
+  cleaner_confirmation_window_minutes Int            @default(60)
+  pre_checkin_alert_minutes           Int            @default(30)
+  created_at                          DateTime       @default(now())
+
+  account              accounts              @relation(fields: [account_id], references: [id])
+  property_cleaners    property_cleaners[]
+  turnover_checklists  turnover_checklists[]
+  bookings             bookings[]
+  messages             messages[]
+  cleaning_jobs        cleaning_jobs[]
+  work_orders          work_orders[]
+  review_drafts        review_drafts[]
+}
+
+model bookings {
+  id                        String        @id @default(uuid())
+  account_id                String
+  property_id               String
+  platform                  Platform
+  platform_booking_id       String
+  guest_first_name          String
+  guest_last_name           String
+  guest_platform_id         String
+  checkin_datetime          DateTime
+  checkout_datetime         DateTime
+  status                    BookingStatus
+  checkin_message_sent      Boolean       @default(false)
+  checkin_message_sent_at   DateTime?
+  checkout_reminder_sent    Boolean       @default(false)
+  checkout_reminder_sent_at DateTime?
+  review_request_sent       Boolean       @default(false)
+  review_request_sent_at    DateTime?
+  created_at                DateTime      @default(now())
+
+  account  accounts   @relation(fields: [account_id], references: [id])
+  property properties @relation(fields: [property_id], references: [id])
+  messages            messages[]
+  cleaning_job        cleaning_jobs?  @relation("CleaningJobBooking")
+  next_cleaning_jobs  cleaning_jobs[] @relation("CleaningJobNextBooking")
+  work_orders         work_orders[]
+  review_drafts       review_drafts[]
+
+  @@unique([account_id, platform, platform_booking_id])
+}
+
+model messages {
+  id                     String           @id @default(uuid())
+  account_id             String
+  property_id            String
+  booking_id             String
+  platform_message_id    String           @unique
+  direction              MessageDirection
+  channel                MessageChannel
+  sender                 MessageSender
+  content                String
+  intent_classification  String?
+  status                 MessageStatus
+  is_urgent              Boolean          @default(false)
+  escalation_reason      String?
+  maintenance_triggered  Boolean          @default(false)
+  sent_at                DateTime?
+  created_at             DateTime         @default(now())
+
+  account     accounts    @relation(fields: [account_id], references: [id])
+  property    properties  @relation(fields: [property_id], references: [id])
+  booking     bookings    @relation(fields: [booking_id], references: [id])
+  work_orders work_orders[]
+}
+
+model cleaning_jobs {
+  id                              String            @id @default(uuid())
+  account_id                      String
+  property_id                     String
+  booking_id                      String            @unique
+  next_booking_id                 String?
+  cleaner_id                      String
+  status                          CleaningJobStatus
+  scheduled_start                 DateTime
+  deadline                        DateTime?
+  job_notification_sent           Boolean           @default(false)
+  job_notification_sent_at        DateTime?
+  cleaner_confirmed_at            DateTime?
+  checklist_sent                  Boolean           @default(false)
+  checklist_sent_at               DateTime?
+  completed_at                    DateTime?
+  closed_by                       ClosedBy?
+  completion_sms_raw              String?
+  supply_flags                    String[]
+  supply_alert_sent               Boolean           @default(false)
+  supply_alert_sent_at            DateTime?
+  supply_alert_dismissed          Boolean           @default(false)
+  supply_alert_permanently_failed Boolean           @default(false)
+  no_response_alert_sent          Boolean           @default(false)
+  pre_checkin_alert_sent          Boolean           @default(false)
+  damage_fyi_sent                 Boolean           @default(false)
+  damage_report_dismissed         Boolean           @default(false)
+  inbound_sms_sids                String[]          @default([])
+  created_at                      DateTime          @default(now())
+  updated_at                      DateTime          @updatedAt
+
+  account      accounts   @relation(fields: [account_id], references: [id])
+  property     properties @relation(fields: [property_id], references: [id])
+  booking      bookings   @relation("CleaningJobBooking", fields: [booking_id], references: [id])
+  next_booking bookings?  @relation("CleaningJobNextBooking", fields: [next_booking_id], references: [id])
+  cleaner      cleaners   @relation(fields: [cleaner_id], references: [id])
+  work_orders  work_orders[]
+}
+
+model work_orders {
+  id                    String           @id @default(uuid())
+  account_id            String
+  property_id           String
+  booking_id            String?
+  reported_by           ReportedBy
+  description           String
+  ai_summary            String?
+  priority              WorkOrderPriority
+  status                WorkOrderStatus
+  source_message_id     String?
+  source_cleaning_job_id String?
+  resolved_at           DateTime?
+  resolved_by           ResolvedBy?
+  manager_notes         String?
+  created_at            DateTime         @default(now())
+  updated_at            DateTime         @updatedAt
+
+  account            accounts      @relation(fields: [account_id], references: [id])
+  property           properties    @relation(fields: [property_id], references: [id])
+  booking            bookings?     @relation(fields: [booking_id], references: [id])
+  source_message     messages?     @relation(fields: [source_message_id], references: [id])
+  source_cleaning_job cleaning_jobs? @relation(fields: [source_cleaning_job_id], references: [id])
+}
+
+model cleaners {
+  id                String              @id @default(uuid())
+  account_id        String
+  name              String
+  phone             String
+  email             String?
+  is_active         Boolean             @default(true)
+  created_at        DateTime            @default(now())
+
+  account           accounts            @relation(fields: [account_id], references: [id])
+  property_cleaners property_cleaners[]
+  cleaning_jobs     cleaning_jobs[]
+}
+
+model property_cleaners {
+  id          String     @id @default(uuid())
+  account_id  String
+  property_id String
+  cleaner_id  String
+  is_primary  Boolean    @default(false)
+  created_at  DateTime   @default(now())
+
+  account  accounts   @relation(fields: [account_id], references: [id])
+  property properties @relation(fields: [property_id], references: [id])
+  cleaner  cleaners   @relation(fields: [cleaner_id], references: [id])
+}
+
+model turnover_checklists {
+  id             String   @id @default(uuid())
+  account_id     String
+  property_id    String
+  checklist_body String   @default("")
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  account  accounts   @relation(fields: [account_id], references: [id])
+  property properties @relation(fields: [property_id], references: [id])
+}
+
+model review_drafts {
+  id                 String            @id @default(uuid())
+  account_id         String
+  property_id        String
+  booking_id         String?
+  platform           Platform
+  platform_review_id String            @unique
+  reviewer_name      String
+  rating             Int
+  review_text        String?
+  draft_response     String?
+  status             ReviewDraftStatus
+  no_review_text     Boolean           @default(false)
+  ai_failed          Boolean           @default(false)
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+
+  account  accounts   @relation(fields: [account_id], references: [id])
+  property properties @relation(fields: [property_id], references: [id])
+  booking  bookings?  @relation(fields: [booking_id], references: [id])
+}
